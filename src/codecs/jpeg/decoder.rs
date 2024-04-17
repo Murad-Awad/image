@@ -151,26 +151,6 @@ fn to_supported_color_space(orig: ZuneColorSpace) -> ZuneColorSpace {
     }
 }
 
-// fn new_zune_decoder(
-//     input: &[u8],
-//     orig_color_space: ZuneColorSpace,
-//     limits: Limits,
-// ) -> zune_jpeg::JpegDecoder<ZCursor<&[u8]>> {
-//     let target_color_space = to_supported_color_space(orig_color_space);
-//     let mut options = zune_core::options::DecoderOptions::default()
-//         .jpeg_set_out_colorspace(target_color_space)
-//         .set_strict_mode(false);
-//     options = options.set_max_width(match limits.max_image_width {
-//         Some(max_width) => max_width as usize, // u32 to usize never truncates
-//         None => usize::MAX,
-//     });
-//     options = options.set_max_height(match limits.max_image_height {
-//         Some(max_height) => max_height as usize, // u32 to usize never truncates
-//         None => usize::MAX,
-//     });
-//     zune_jpeg::JpegDecoder::new_with_options(ZCursor::new(input), options)
-// }
-
 impl ImageError {
     fn from_jpeg(err: zune_jpeg::errors::DecodeErrors) -> ImageError {
         use zune_jpeg::errors::DecodeErrors::*;
