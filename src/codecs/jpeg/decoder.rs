@@ -53,9 +53,8 @@ impl JpegDecoder {
             Some(max_height) => max_height as usize, // u32 to usize never truncates
             None => usize::MAX,
         });
-        options =
-            options.jpeg_set_out_colorspace(to_supported_color_space(orig_color_space));
-        
+        options = options.jpeg_set_out_colorspace(to_supported_color_space(orig_color_space));
+
         // update options
         decoder.set_options(options);
         Ok(JpegDecoder {
@@ -96,9 +95,7 @@ impl ImageDecoder for JpegDecoder {
             )));
         }
 
-        // let mut decoder = new_zune_decoder(&self.input, self.orig_color_space, self.limits);
-        self.decoder.decode_into(buf).map_err(ImageError::from_jpeg)?;
-        Ok(())
+        self.decoder.decode_into(buf).map_err(ImageError::from_jpeg)
     }
 
     fn set_limits(&mut self, limits: Limits) -> ImageResult<()> {
