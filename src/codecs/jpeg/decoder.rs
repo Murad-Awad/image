@@ -14,7 +14,6 @@ type ZuneColorSpace = zune_core::colorspace::ColorSpace;
 
 /// JPEG decoder
 pub struct JpegDecoder {
-    input: Vec<u8>,
     decoder: zune_jpeg::JpegDecoder<ZCursor<Vec<u8>>>,
     orig_color_space: ZuneColorSpace,
     width: u16,
@@ -28,7 +27,7 @@ impl JpegDecoder {
         let mut input = Vec::new();
         let mut r = r;
         r.read_to_end(&mut input)?;
-        let options = DecoderOptions::default()
+        let mut options = DecoderOptions::default()
             .set_strict_mode(false)
             .set_max_width(usize::MAX)
             .set_max_height(usize::MAX);
@@ -45,8 +44,21 @@ impl JpegDecoder {
         let orig_color_space = decoder.output_colorspace().unwrap();
         // Limits are disabled by default in the constructor for all decoders
         let limits = Limits::no_limits();
+
+        options = options.set_max_width(match limits.max_image_width {
+            Some(max_width) => max_width as usize, // u32 to usize never truncates
+            None => usize::MAX,
+        });
+        options = options.set_max_height(match limits.max_image_height {
+            Some(max_height) => max_height as usize, // u32 to usize never truncates
+            None => usize::MAX,
+        });
+        options =
+            options.jpeg_set_out_colorspace(to_supported_color_space(orig_color_space));
+        
+        // update options
+        decoder.set_options(options);
         Ok(JpegDecoder {
-            input,
             decoder,
             orig_color_space,
             width,
@@ -69,7 +81,7 @@ impl ImageDecoder for JpegDecoder {
         Ok(self.decoder.icc_profile())
     }
 
-    fn read_image(self, buf: &mut [u8]) -> ImageResult<()> {
+    fn read_image(mut self, buf: &mut [u8]) -> ImageResult<()> {
         let advertised_len = self.total_bytes();
         let actual_len = buf.len() as u64;
 
@@ -84,8 +96,8 @@ impl ImageDecoder for JpegDecoder {
             )));
         }
 
-        let mut decoder = new_zune_decoder(&self.input, self.orig_color_space, self.limits);
-        decoder.decode_into(buf).map_err(ImageError::from_jpeg)?;
+        // let mut decoder = new_zune_decoder(&self.input, self.orig_color_space, self.limits);
+        self.decoder.decode_into(buf).map_err(ImageError::from_jpeg)?;
         Ok(())
     }
 
@@ -139,25 +151,25 @@ fn to_supported_color_space(orig: ZuneColorSpace) -> ZuneColorSpace {
     }
 }
 
-fn new_zune_decoder(
-    input: &[u8],
-    orig_color_space: ZuneColorSpace,
-    limits: Limits,
-) -> zune_jpeg::JpegDecoder<ZCursor<&[u8]>> {
-    let target_color_space = to_supported_color_space(orig_color_space);
-    let mut options = zune_core::options::DecoderOptions::default()
-        .jpeg_set_out_colorspace(target_color_space)
-        .set_strict_mode(false);
-    options = options.set_max_width(match limits.max_image_width {
-        Some(max_width) => max_width as usize, // u32 to usize never truncates
-        None => usize::MAX,
-    });
-    options = options.set_max_height(match limits.max_image_height {
-        Some(max_height) => max_height as usize, // u32 to usize never truncates
-        None => usize::MAX,
-    });
-    zune_jpeg::JpegDecoder::new_with_options(ZCursor::new(input), options)
-}
+// fn new_zune_decoder(
+//     input: &[u8],
+//     orig_color_space: ZuneColorSpace,
+//     limits: Limits,
+// ) -> zune_jpeg::JpegDecoder<ZCursor<&[u8]>> {
+//     let target_color_space = to_supported_color_space(orig_color_space);
+//     let mut options = zune_core::options::DecoderOptions::default()
+//         .jpeg_set_out_colorspace(target_color_space)
+//         .set_strict_mode(false);
+//     options = options.set_max_width(match limits.max_image_width {
+//         Some(max_width) => max_width as usize, // u32 to usize never truncates
+//         None => usize::MAX,
+//     });
+//     options = options.set_max_height(match limits.max_image_height {
+//         Some(max_height) => max_height as usize, // u32 to usize never truncates
+//         None => usize::MAX,
+//     });
+//     zune_jpeg::JpegDecoder::new_with_options(ZCursor::new(input), options)
+// }
 
 impl ImageError {
     fn from_jpeg(err: zune_jpeg::errors::DecodeErrors) -> ImageError {
